@@ -141,8 +141,9 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
     let mut proto_message:Message=Message{ fields: vec![]};
 
     while current_index<decoded_proto.len() {
-        let key: ProtoKey = ProtoKey::from_varint(&get_varint_raw_at(decoded_proto, current_index));
-        current_index += 1;
+        let varint_raw_at = get_varint_raw_at(decoded_proto, current_index);
+        let key: ProtoKey = ProtoKey::from_varint(&varint_raw_at);
+        current_index += varint_raw_at.len();
         match key.wire_type {
             TYPE_0 => { //int32, int64, uint32, uint64, sint32, sint64, bool, enum
                 let (the_varint, offset) = get_varint_decoded_at(&decoded_proto, current_index);
@@ -160,6 +161,12 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
             TYPE_2 => { //string, bytes or subobject
                 let (data_length, offset) = get_varint_decoded_at(&decoded_proto, current_index);
                 current_index += offset;
+
+                if decoded_proto.len()<current_index ||decoded_proto.len() < current_index + data_length.get_value_as_i32() as usize  {
+                    warn!("Index out of bounds");
+                    return Err("Index out of bounds".into());
+                }
+
                 let raw_data_bytes: &[u8] = &decoded_proto[current_index..current_index+(data_length.get_value_as_i32() as usize)];
 
                 let mut decoded_sub_message = decode_proto(raw_data_bytes);
@@ -196,7 +203,7 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
                 current_index += data_length.get_value_as_i32()  as usize;
             }
             TYPE_5 => { //expect a chunk of 32 bits (fixed32, sfixed32, float)
-                if decoded_proto.len()<current_index ||decoded_proto.len() - 1 < current_index + 4 {
+                if decoded_proto.len()<current_index ||decoded_proto.len() < current_index + 4 {
                     warn!("Index out of bounds");
                     return Err("Index out of bounds".into());
                 }
@@ -213,7 +220,7 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
                 );
             }
             TYPE_1 => { //expect a chunk of fixed 64 bits, fixed64, double(f64) sfixed64
-                if decoded_proto.len()<current_index ||decoded_proto.len() - 1 < current_index + 8 {
+                if decoded_proto.len()<current_index ||decoded_proto.len() < current_index + 8 {
                     warn!("Index out of bounds");
                     return Err("Index out of bounds".into());
                 }
@@ -228,6 +235,14 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
                         messages: vec![]
                     }
                 );
+            }
+            TYPE_3 => {
+                warn!("Not supported type");
+                return Err("Not supported type".into());
+            }
+            TYPE_4 => {
+                warn!("Not supported type");
+                return Err("Not supported type".into());
             }
             _ => {
                 warn!("Invalid type: {}", key.wire_type);
