@@ -1,8 +1,8 @@
 use clap::Parser;
 use clap::ArgEnum;
-use log::{debug, error, log_enabled, info, Level, warn};
+use log::{info};
 use std::error::Error;
-use aleka::{decode_proto, Field, Message, ProtoKey, Value, ValueRepresentation};
+use aleka::{decode_proto, Message};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
 enum InputType {

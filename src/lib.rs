@@ -1,7 +1,6 @@
-
 use std::error::Error;
 use serde::{Serialize, Deserialize};
-use log::{debug, error, log_enabled, info, Level, warn};
+use log::{debug, warn};
 
 
 const TYPE_0:u8 = 0;//Varint-	int32, int64, uint32, uint64, sint32, sint64, bool, enum
@@ -43,7 +42,7 @@ pub struct Message {
 
 impl Message {
     pub fn add_field(&mut self, field:Field){
-        for mut a_field in self.fields.iter_mut() {
+        for a_field in self.fields.iter_mut() {
             if a_field.field_number == field.field_number {
                 field.values.into_iter().for_each(|a_val| {a_field.values.push(a_val)});
                 field.messages.into_iter().for_each(|a_msg| {a_field.messages.push(a_msg)});
@@ -169,7 +168,7 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
 
                 let raw_data_bytes: &[u8] = &decoded_proto[current_index..current_index+(data_length.get_value_as_i32() as usize)];
 
-                let mut decoded_sub_message = decode_proto(raw_data_bytes);
+                let decoded_sub_message = decode_proto(raw_data_bytes);
                 if decoded_sub_message.is_ok() {
                     proto_message.add_field(
                         Field{ field_number: key.field_number,
@@ -290,11 +289,12 @@ fn decode_varint(a_varint:&[u8]) -> VarIntDecodedData {
     decoded_data
 }
 
+#[allow(dead_code)]
 fn encode_to_varint(a_number:i32) -> Vec<u8> {
     let mut result:Vec<u8> = vec![];
 
     for i in 0 .. 5 {
-        let mut new_byte:u8 = (a_number >> 7*i) as u8;
+        let mut new_byte:u8 = (a_number >> (7*i)) as u8;
         if i==4 {
             new_byte &= 0b0111_1111; // if it's the last byte, mark it with 0 at the beginning
         }else {
