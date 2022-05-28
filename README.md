@@ -10,4 +10,31 @@ https://developers.google.com/protocol-buffers/docs/encoding#cheat-sheet
 
 ## Usage
 
-cargo run --package aleka --bin aleka -- --input-type hex --data 08f4ffffffffffffffff0110d2091a0768656c6c6f6f6f25713d0a422d5e0e0000321e08c80312076d696775656c3112076d696775656c3212076d696775656c3338d30342030f01cf48e58de7ef8c1d50015a1b09bc7f62010000000012076d696775656c3112076d696775656c325a21093f420f0000000000120a6d696775656c63636331120a6d696775656c63636332
+cargo run -- --input-type hex --data 08f4ffffffffffffffff0110d2091a0768656c6c6f6f6f25713d0a422d5e0e0000321e08c80312076d696775656c3112076d696775656c3212076d696775656c3338d30342030f01cf48e58de7ef8c1d50015a1b09bc7f62010000000012076d696775656c3112076d696775656c325a21093f420f0000000000120a6d696775656c63636331120a6d696775656c63636332
+
+## Structure of the output JSON
+
+The output json schema is:
+
+//a proto message
+Message{
+    fields: array of Field
+}
+
+//representation of a field of the proto message, it could be a value, or repeated values, or a submessage or a list of submessages
+//values and message can be filled a the same time in case that the decoding is ambiguous and the result can be both aproto message and a string
+Field{
+    field_number: int expressing the field number in the proto
+    values: array of Value
+    messages: array of Message
+}
+
+//since we don't have a schema, a value can have different interpretations depending on how it's decoded. That's why there is a list here, to show the different possibilities
+Value{
+    value_representations: array of ValueRepresentation
+}
+
+ValueRepresentation{
+    value: the value
+    format_type: the type used to represent this value
+}

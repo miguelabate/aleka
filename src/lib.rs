@@ -152,68 +152,7 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
                 //fill data in the message object
                 proto_message.fields.push(
                     Field{ field_number: key.field_number,
-                        values: vec![Value{ value_representations: vec![ValueRepresentation{ value: the_varint.get_value_as_i64().to_string(), format_type: "Varint(int32/int64/uint32/uint64)".to_owned() }, ValueRepresentation{ value: the_varint.get_value_as_signed_i64_zigzag().to_string(), format_type: "Varint(sint32/sint64)".to_owned() }] }],
-                        messages: vec![]
-                    }
-                );
-            }
-            TYPE_2 => { //string, bytes or subobject
-                let (data_length, offset) = get_varint_decoded_at(&decoded_proto, current_index);
-                current_index += offset;
-
-                if decoded_proto.len()<current_index ||decoded_proto.len() < current_index + data_length.get_value_as_i32() as usize  {
-                    warn!("Index out of bounds");
-                    return Err("Index out of bounds".into());
-                }
-
-                let raw_data_bytes: &[u8] = &decoded_proto[current_index..current_index+(data_length.get_value_as_i32() as usize)];
-
-                let decoded_sub_message = decode_proto(raw_data_bytes);
-                if decoded_sub_message.is_ok() {
-                    proto_message.add_field(
-                        Field{ field_number: key.field_number,
-                            values: vec![],
-                            messages: vec![decoded_sub_message?]
-                        }
-                    );
-                }else{//here could be submessage or string of bytes
-                    let bytes_to_string = std::str::from_utf8(raw_data_bytes);
-                    if bytes_to_string.is_ok() {
-                        debug!("String value {}", bytes_to_string.unwrap());
-                        proto_message.add_field(
-                            Field{ field_number: key.field_number,
-                                values: vec![Value{ value_representations: vec![ValueRepresentation{ value: bytes_to_string.unwrap().to_owned(), format_type: "String".to_owned() }] }],
-                                messages: vec![]
-                            }
-                        );
-                    }else {
-                        //if there was an error probably it' s just bytes
-                        proto_message.add_field(
-                            Field{ field_number: key.field_number,
-                                values: vec![Value{ value_representations: vec![ValueRepresentation{ value: "XXXX".to_owned(), format_type: "Bytes".to_owned() }] }],
-                                messages: vec![]
-                            }
-                        );
-                    }
-
-                }
-
-
-                current_index += data_length.get_value_as_i32()  as usize;
-            }
-            TYPE_5 => { //expect a chunk of 32 bits (fixed32, sfixed32, float)
-                if decoded_proto.len()<current_index ||decoded_proto.len() < current_index + 4 {
-                    warn!("Index out of bounds");
-                    return Err("Index out of bounds".into());
-                }
-                let raw_data_bytes: [u8;4] = <[u8; 4]>::try_from(&decoded_proto[current_index..current_index + 4]).unwrap();
-                debug!("fixed32 value {}", i32::from_le_bytes(raw_data_bytes));
-                debug!("float value {}", f32::from_le_bytes(raw_data_bytes));
-                current_index += 4;
-                //fill data in the message object
-                proto_message.fields.push(
-                    Field{ field_number: key.field_number,
-                        values: vec![Value{ value_representations: vec![ValueRepresentation{ value: i32::from_le_bytes(raw_data_bytes).to_string(), format_type: "fixed32".to_owned() }, ValueRepresentation{ value: f32::from_le_bytes(raw_data_bytes).to_string(), format_type: "float".to_owned() }] }],
+                        values: vec![Value{ value_representations: vec![ValueRepresentation{ value: the_varint.get_value_as_i64().to_string(), format_type: "Varint(int32/int64/uint32/uint64/bool/enum)".to_owned() }, ValueRepresentation{ value: the_varint.get_value_as_signed_i64_zigzag().to_string(), format_type: "Varint(sint32/sint64)".to_owned() }] }],
                         messages: vec![]
                     }
                 );
@@ -235,6 +174,54 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
                     }
                 );
             }
+            TYPE_2 => { //string, bytes or subobject
+                let (data_length, offset) = get_varint_decoded_at(&decoded_proto, current_index);
+                current_index += offset;
+
+                if decoded_proto.len()<current_index ||decoded_proto.len() < current_index + data_length.get_value_as_i32() as usize  {
+                    warn!("Index out of bounds");
+                    return Err("Index out of bounds".into());
+                }
+
+                let raw_data_bytes: &[u8] = &decoded_proto[current_index..current_index+(data_length.get_value_as_i32() as usize)];
+
+                let decoded_sub_message = decode_proto(raw_data_bytes);
+                let bytes_to_string = std::str::from_utf8(raw_data_bytes);
+
+                let sub_message_ok = decoded_sub_message.is_ok();
+                if sub_message_ok {
+                    proto_message.add_field(
+                        Field{ field_number: key.field_number,
+                            values: vec![],
+                            messages: vec![decoded_sub_message?]
+                        }
+                    );
+                }
+                let string_parse_ok = bytes_to_string.is_ok();
+                if string_parse_ok {
+                    debug!("String value {}", bytes_to_string.unwrap());
+                    proto_message.add_field(
+                        Field{ field_number: key.field_number,
+                            values: vec![Value{ value_representations: vec![ValueRepresentation{ value: bytes_to_string.unwrap().to_owned(), format_type: "String".to_owned() }] }],
+                            messages: vec![]
+                        }
+                    );
+                }
+
+                if !string_parse_ok && !sub_message_ok {
+                    //if there was an error probably it' s just bytes
+                    proto_message.add_field(
+                        Field{ field_number: key.field_number,
+                            values: vec![Value{ value_representations: vec![ValueRepresentation{ value: base64::encode(raw_data_bytes), format_type: "Bytes".to_owned() }] }],
+                            messages: vec![]
+                        }
+                    );
+                }
+
+
+
+                current_index += data_length.get_value_as_i32()  as usize;
+            }
             TYPE_3 => {
                 warn!("Not supported type");
                 return Err("Not supported type".into());
@@ -242,6 +229,23 @@ pub fn decode_proto(decoded_proto:&[u8]) -> Result<Message, Box<dyn Error>>{
             TYPE_4 => {
                 warn!("Not supported type");
                 return Err("Not supported type".into());
+            }
+            TYPE_5 => { //expect a chunk of 32 bits (fixed32, sfixed32, float)
+                if decoded_proto.len()<current_index ||decoded_proto.len() < current_index + 4 {
+                    warn!("Index out of bounds");
+                    return Err("Index out of bounds".into());
+                }
+                let raw_data_bytes: [u8;4] = <[u8; 4]>::try_from(&decoded_proto[current_index..current_index + 4]).unwrap();
+                debug!("fixed32 value {}", i32::from_le_bytes(raw_data_bytes));
+                debug!("float value {}", f32::from_le_bytes(raw_data_bytes));
+                current_index += 4;
+                //fill data in the message object
+                proto_message.fields.push(
+                    Field{ field_number: key.field_number,
+                        values: vec![Value{ value_representations: vec![ValueRepresentation{ value: i32::from_le_bytes(raw_data_bytes).to_string(), format_type: "fixed32".to_owned() }, ValueRepresentation{ value: f32::from_le_bytes(raw_data_bytes).to_string(), format_type: "float".to_owned() }] }],
+                        messages: vec![]
+                    }
+                );
             }
             _ => {
                 warn!("Invalid type: {}", key.wire_type);
