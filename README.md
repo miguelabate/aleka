@@ -1,12 +1,14 @@
-# Aleka: a schema agnostic protobuf decoder tool (WIP)
+# Aleka: a schema agnostic protobuf decoder tool
 
 Command line tool and library to decode base64/hex strings of binary protobuf messages
 and does its best to decode the contents according to the specification.
 
-The output is text in JSON format
+The output is in JSON format
 
 https://developers.google.com/protocol-buffers/docs/encoding  
 https://developers.google.com/protocol-buffers/docs/encoding#cheat-sheet  
+
+Blog post about with some more details about Aleka [https://miguelabate.com/aleka-a-schema-agnostic-protobuf-decoder/](https://miguelabate.com/aleka-a-schema-agnostic-protobuf-decoder/)  
 
 ## Usage
 
@@ -15,14 +17,14 @@ cargo run -- --input-type hex --data 08f4ffffffffffffffff0110d2091a0768656c6c6f6
 ## Structure of the output JSON
 
 The output json schema is:
-
+```
 //a proto message
 Message{
     fields: array of Field
 }
 
-//representation of a field of the proto message, it could be a value, or repeated values, or a submessage or a list of submessages
-//values and message can be filled a the same time in case that the decoding is ambiguous and the result can be both aproto message and a string
+//representation of a field of the proto message, it could be a value, or repeated values, or a submessage or a list of submessages.
+//Values and message can be filled at the same time in case that the decoding is ambiguous and the result can be both a proto message and a string
 Field{
     field_number: int expressing the field number in the proto
     values: array of Value
@@ -35,6 +37,7 @@ Value{
 }
 
 ValueRepresentation{
-    value: the value
+    value: the value as a String
     format_type: the type used to represent this value
 }
+```
